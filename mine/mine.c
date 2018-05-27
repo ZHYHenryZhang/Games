@@ -49,11 +49,13 @@ int minefield_print(int Height, int Width, int MineField[][Width], Status Player
     for(int i = 0; i < Height; i++){
         printf("%2d| ",i);
         for(int j = 0; j < Width; j++){
-            if(MineField[i][j] < 9 )
+            if(MineField[i][j] < 9 && MineField[i][j] > 0 )
                 printf("%d ",MineField[i][j]);
             else{
                 if(MineField[i][j] == PUZZLE)
-                    printf("Q ");
+                    printf("- ");
+                else if(MineField[i][j] == 0 )
+                    printf("  ");
                 else if(MineField[i][j] == NOTMINE)
                     printf("S ");
                 else if(MineField[i][j] == MINE)
@@ -129,7 +131,7 @@ int checkMinPos(int MineNum, int MinePos[][2], int x, int y)
 
 void minefield_display(int Height, int Width, int MineField[][Width], int MineNum, int MinePos[][2], Status PlayerStatus)
 {
-    array2d_init(Height, Width, MineField, NOTMINE);
+    //array2d_init(Height, Width, MineField, NOTMINE);
     for( int i = 0; i < MineNum; i++){
         MineField[MinePos[i][0]][MinePos[i][1]] = MINE;
     }
@@ -150,13 +152,41 @@ int minefield_countmine(int Height, int Width, int MineField[][Width], int MineN
     return counter;
 }
 
-void minefield_neighbor(int Height, int Width, int MineField[][Width], int MineNum, int MinePos[][2],int x, int y)
+int minefield_countflag(int Height, int Width, int MineField[][Width], int x, int y)
 {
-    if(MineField[x][y] == NOTMINE){
-        int minecount = minefield_countmine(Height, Width, MineField, MineNum, MinePos, x, y);
-        MineField[x][y] = minecount;
+    int counter = 0;
+    for(int i = x-1; i <= x+1; i++){
+        for(int j = y-1; j <= y+1; j++){
+            if( i >= 0 && i < Height && j >= 0 && j < Width ){
+                if(MineField[i][j] == FLAG)
+                    counter ++;
+            }
+        }
     }
+    return counter;
+}
 
+int minefield_countpuzzle(int Height, int Width, int MineField[][Width], int x, int y)
+{
+    int counter = 0;
+    for(int i = x-1; i <= x+1; i++){
+        for(int j = y-1; j <= y+1; j++){
+            if( i >= 0 && i < Height && j >= 0 && j < Width ){
+                if(MineField[i][j] == PUZZLE)
+                    counter ++;
+            }
+        }
+    }
+    return counter;
+}
+
+Status minefield_neighbor(int Height, int Width, int MineField[][Width], int MineNum, int MinePos[][2],int x, int y, Status PlayerStatus)
+{
+    int minecount = minefield_countmine(Height, Width, MineField, MineNum, MinePos, x, y);
+    if(MineField[x][y] == PUZZLE)
+        PlayerStatus.puzzleleft--;
+    MineField[x][y] = minecount;
+    return PlayerStatus;
     /*
     for(int i = x-1; i <= x+1; i++){
         for(int j = y-1; j <= y+1; j++){
@@ -170,21 +200,73 @@ void minefield_neighbor(int Height, int Width, int MineField[][Width], int MineN
     }*/
 }
 
-Status minefield_auto(int Height, int Width, int MineField[][Width], int MineNum, int MinePos[][2],int x, int y, Status PlayerStatus)
+Status minefield_helper(int Height, int Width, int MineField[][Width], int MineNum, int MinePos[][2],int x, int y, Status PlayerStatus)
 {
-    if(MineField[x][y] == NOTMINE){
-        int minecount = minefield_countmine(Height, Width, MineField, MineNum, MinePos, x, y);
-        MineField[x][y] = minecount;
-    }
-    if(MineField[x][y] == 0){
+    int minecount1 = minefield_countmine(Height, Width, MineField, MineNum, MinePos, x, y);
+    if(MineField[x][y] == PUZZLE)
+        PlayerStatus.puzzleleft--;
+    MineField[x][y] = minecount1;
+
+    if(MineField[x][y] == 0 && minefield_countflag(Height, Width, MineField, x, y) == 0 ){
         for(int i = x-1; i <= x+1; i++){
             for(int j = y-1; j <= y+1; j++){
                 if( i >= 0 && i < Height && j >= 0 && j < Width ){
-                    if(MineField[i][j] == PUZZLE || MineField[i][j] == FLAG ){
+                    if(MineField[i][j] == PUZZLE)
                         PlayerStatus.puzzleleft --;
-                        int minecount = minefield_countmine(Height, Width, MineField, MineNum, MinePos, i, j);
-                        MineField[i][j] = minecount;
-                    }
+                    int minecount2 = minefield_countmine(Height, Width, MineField, MineNum, MinePos, i, j);
+                    MineField[i][j] = minecount2;
+                }
+            }
+        }    
+    }
+    return PlayerStatus;
+}
+
+Status minefield_auto(int Height, int Width, int MineField[][Width], int MineNum, int MinePos[][2],int x, int y, Status PlayerStatus)
+{
+    if(MineField[x][y] == PUZZLE)
+        PlayerStatus.puzzleleft--;
+    else{
+        return PlayerStatus;
+    }
+    int minecount1 = minefield_countmine(Height, Width, MineField, MineNum, MinePos, x, y);
+    MineField[x][y] = minecount1;
+
+    int fcnt = minefield_countflag(Height, Width, MineField, x, y);
+    int pcnt = minefield_countpuzzle(Height, Width, MineField, x, y);
+    //printf("(%d,%d) Pc:%d Fc:%d\n",x,y,pcnt,fcnt);
+
+    if(MineField[x][y] == 0 && fcnt == 0 && pcnt != 0){
+        for(int i = x-1; i <= x+1; i++){
+            for(int j = y-1; j <= y+1; j++){
+                if( i >= 0 && i < Height && j >= 0 && j < Width && (i != x || j != y)){
+                    PlayerStatus = minefield_auto(Height, Width, MineField, MineNum, MinePos, i, j, PlayerStatus);
+                }
+            }
+        }    
+    }
+    return PlayerStatus;
+}
+
+Status minefield_solver(int Height, int Width, int MineField[][Width], int MineNum, int MinePos[][2],int x, int y, Status PlayerStatus)
+{
+    if(MineField[x][y] == PUZZLE)
+        PlayerStatus.puzzleleft--;
+    else{
+        return PlayerStatus;
+    }
+    int minecount1 = minefield_countmine(Height, Width, MineField, MineNum, MinePos, x, y);
+    MineField[x][y] = minecount1;
+
+    int fcnt = minefield_countflag(Height, Width, MineField, x, y);
+    int pcnt = minefield_countpuzzle(Height, Width, MineField, x, y);
+    //printf("(%d,%d) Pc:%d Fc:%d\n",x,y,pcnt,fcnt);
+
+    if(MineField[x][y] == 0 && fcnt == 0 && pcnt != 0){
+        for(int i = x-1; i <= x+1; i++){
+            for(int j = y-1; j <= y+1; j++){
+                if( i >= 0 && i < Height && j >= 0 && j < Width && (i != x || j != y)){
+                    PlayerStatus = minefield_solver(Height, Width, MineField, MineNum, MinePos, i, j, PlayerStatus);
                 }
             }
         }    
@@ -196,34 +278,65 @@ int game_loop(int Height, int Width, int MineField[][Width], int MineNum, int Mi
 {
     int game_status = GAME_START;
     int Ctrlx,Ctrly;
+    char Ctrlz;
     while( game_status != GAME_END){
         minefield_print(Height, Width, MineField, PlayerStatus);
         // read command
-        printf("give the axies x,y to test, -1,-1 to quit\n");
-        scanf("%d,%d", &Ctrlx, &Ctrly);
-        if(Ctrlx < Height && Ctrlx >= 0 && Ctrly < Width && Ctrly >=0 ){
-            // test what happened
-            if(MineField[Ctrlx][Ctrly] == PUZZLE || MineField[Ctrlx][Ctrly] == FLAG){
-                int issafe = checkMinPos(MineNum, MinePos, Ctrlx, Ctrly);
-                if(issafe == 1){
-                    MineField[Ctrlx][Ctrly] = NOTMINE;
-                    PlayerStatus.puzzleleft --;
-                    if(GameSettings.automode == 0)
-                        minefield_neighbor(Height, Width, MineField, MineNum, MinePos, Ctrlx, Ctrly);
-                    else
-                        PlayerStatus = minefield_auto(Height, Width, MineField, MineNum, MinePos, Ctrlx, Ctrly, PlayerStatus);
-                }
-                else{
-                    printf("You hit the mine, game over!\n");
-                    minefield_display(Height, Width, MineField, MineNum, MinePos, PlayerStatus);
-                    return -1;
-                }
-            }
-        }
-        else if (Ctrlx == -1 && Ctrly == -1){
-            // quit()
+        printf("give the axies x,y,U to open, x,y,F to flag or unflag, x,y,Q to quit\n");
+        scanf("%d,%d,%c", &Ctrlx, &Ctrly, &Ctrlz);
+        if (Ctrlz == 'Q'){
+            // quit
             return -1;
         }
+        else{
+            if(Ctrlx < Height && Ctrlx >= 0 && Ctrly < Width && Ctrly >=0 ){
+                // test what happened
+                if(Ctrlz == 'U'){
+                    if(MineField[Ctrlx][Ctrly] != FLAG){
+                        int issafe = checkMinPos(MineNum, MinePos, Ctrlx, Ctrly);
+                        if(issafe == 1){
+                            // MineField[Ctrlx][Ctrly] = NOTMINE;
+                            // PlayerStatus.puzzleleft --;
+                            if(GameSettings.automode == 1)
+                                PlayerStatus = minefield_neighbor(Height, Width, MineField, MineNum, MinePos, Ctrlx, Ctrly, PlayerStatus);
+                            else if(GameSettings.automode == 2)
+                                PlayerStatus = minefield_helper(Height, Width, MineField, MineNum, MinePos, Ctrlx, Ctrly, PlayerStatus);
+                            else if(GameSettings.automode == 3)
+                                PlayerStatus = minefield_auto(Height, Width, MineField, MineNum, MinePos, Ctrlx, Ctrly, PlayerStatus);
+                            else{
+                                PlayerStatus = minefield_solver(Height, Width, MineField, MineNum, MinePos, Ctrlx, Ctrly, PlayerStatus);
+                            }
+                        }
+                        else{
+                            printf("You hit the mine, game over!\n");
+                            minefield_display(Height, Width, MineField, MineNum, MinePos, PlayerStatus);
+                            return -1;
+                        }
+                    }
+                    else{
+                        printf("Flag here, remove it first\n");
+                    }
+                }
+                else if(Ctrlz == 'F'){
+                    if(MineField[Ctrlx][Ctrly] == PUZZLE){
+                        PlayerStatus.MineNumleft --;
+                        PlayerStatus.puzzleleft --;
+                        MineField[Ctrlx][Ctrly] = FLAG;
+                    }
+                    else if(MineField[Ctrlx][Ctrly] == FLAG){
+                        PlayerStatus.MineNumleft ++;
+                        PlayerStatus.puzzleleft ++;
+                        MineField[Ctrlx][Ctrly] = PUZZLE;
+                    }
+                    else{
+                        printf("no flag operation.\n");
+                    }
+                }
+                else{
+                    printf("no other choices yet.\n");
+                }
+            }
+        }        
         if(PlayerStatus.MineNumleft == PlayerStatus.puzzleleft)
         {
             printf("you win!");
@@ -267,9 +380,9 @@ int mine(int Level)
     
     int Ctl1;
     Settings GameSettings;
-    GameSettings.automode = 0; // close automode
+    GameSettings.automode = 3; // automode
     
-    printf("Settings: Width: %d, Height: %d, Mine: %d, automode: %s\n", Width, Height, MineNum, GameSettings.automode == 1?"on":"off");
+    printf("Settings: Width: %d, Height: %d, Mine: %d, automode: %d\n", Width, Height, MineNum, GameSettings.automode);
     printf("Menu:\n1.Start.\n2.Settings.\n3.Main Menu.\n");
     scanf("%d",&Ctl1);
     while(Ctl1 != 3){
@@ -284,12 +397,10 @@ int mine(int Level)
             while (Ctl2 != 2){
                 if (Ctl2 == 1){
                     int Ctl3;
-                    printf("automode settings:\n1.on.\n2.off\n");
+                    printf("automode settings:\n1.no auto.\n2.helper expand\n3.auto expand.\n4.solver\n");
                     scanf("%d", &Ctl3);
-                    if(Ctl3 == 1)
-                        GameSettings.automode = 1;
-                    else if (Ctl3 == 2)
-                        GameSettings.automode = 0;
+                    if(Ctl3 < 5 && Ctl3 > 0)
+                        GameSettings.automode = Ctl3;
                     else{
                         printf("invalid input\n");
                     }
@@ -304,7 +415,7 @@ int mine(int Level)
         else{
             printf("invalid input");
         }
-        printf("Settings: Width: %d, Height: %d, Mine: %d, automode: %s\n", Width, Height, MineNum, GameSettings.automode == 1?"on":"off");
+        printf("Settings: Width: %d, Height: %d, Mine: %d, automode: %d\n", Width, Height, MineNum, GameSettings.automode);
         printf("Menu:\n1.Start.\n2.Settings.\n3.Main Menu.\n");
         scanf("%d",&Ctl1);
     }
