@@ -180,6 +180,20 @@ int minefield_countpuzzle(int Height, int Width, int MineField[][Width], int x, 
     return counter;
 }
 
+int minefield_countunopen(int Height, int Width, int MineField[][Width], int x, int y)
+{
+    int counter = 0;
+    for(int i = x-1; i <= x+1; i++){
+        for(int j = y-1; j <= y+1; j++){
+            if( i >= 0 && i < Height && j >= 0 && j < Width ){
+                if(MineField[i][j] == PUZZLE || MineField[i][j] == FLAG)
+                    counter ++;
+            }
+        }
+    }
+    return counter;
+}
+
 Status minefield_neighbor(int Height, int Width, int MineField[][Width], int MineNum, int MinePos[][2],int x, int y, Status PlayerStatus)
 {
     int minecount = minefield_countmine(Height, Width, MineField, MineNum, MinePos, x, y);
@@ -248,6 +262,44 @@ Status minefield_auto(int Height, int Width, int MineField[][Width], int MineNum
     return PlayerStatus;
 }
 
+Status minefield_scanflag(int Height, int Width, int MineField[][Width], int MineNum, int MinePos[][2] ,Status PlayerStatus)
+{
+    for(int i = 0; i < Height; i++){
+        for (int j = 0; j < Width; j++){
+            int ucnt = minefield_countunopen(Height, Width, MineField, i, j);
+            int mcnt = minefield_countmine(Height, Width, MineField, MineNum, MinePos, i, j);
+            int fcnt = minefield_countflag(Height, Width, MineField, i, j);
+            if(ucnt == mcnt ){
+                for( int m = i-1; m <= i + 1; m++){
+                    for( int n = j-1; n <= j + 1; n++){
+                        if( m >= 0 && m < Height && n >= 0 && n < Width){
+                            if( MineField[m][n] == PUZZLE){
+                                MineField[m][n] = FLAG;
+                                PlayerStatus.MineNumleft--;
+                                PlayerStatus.puzzleleft--;
+                            }
+                        }
+                    }
+                }
+            }
+            if(fcnt == mcnt && ucnt > mcnt){
+                for( int m = i-1; m <= i + 1; m++){
+                    for( int n = j-1; n <= j + 1; n++){
+                        if( m >= 0 && m < Height && n >= 0 && n < Width){
+                            if( MineField[m][n] == PUZZLE){
+                                MineField[m][n] = minefield_countmine(Height, Width, MineField, MineNum, MinePos, m, n);
+                                PlayerStatus.puzzleleft--;
+                            }
+                        }
+                    }
+                }
+            }
+
+        }
+    }
+    return PlayerStatus;
+}
+
 Status minefield_solver(int Height, int Width, int MineField[][Width], int MineNum, int MinePos[][2],int x, int y, Status PlayerStatus)
 {
     if(MineField[x][y] == PUZZLE)
@@ -305,6 +357,7 @@ int game_loop(int Height, int Width, int MineField[][Width], int MineNum, int Mi
                                 PlayerStatus = minefield_auto(Height, Width, MineField, MineNum, MinePos, Ctrlx, Ctrly, PlayerStatus);
                             else{
                                 PlayerStatus = minefield_solver(Height, Width, MineField, MineNum, MinePos, Ctrlx, Ctrly, PlayerStatus);
+                                PlayerStatus = minefield_scanflag(Height, Width, MineField, MineNum, MinePos, PlayerStatus);
                             }
                         }
                         else{
@@ -339,7 +392,8 @@ int game_loop(int Height, int Width, int MineField[][Width], int MineNum, int Mi
         }        
         if(PlayerStatus.MineNumleft == PlayerStatus.puzzleleft)
         {
-            printf("you win!");
+            printf("you win!\n");
+            minefield_print(Height, Width, MineField, PlayerStatus);
             break;
         }
     }
@@ -380,7 +434,7 @@ int mine(int Level)
     
     int Ctl1;
     Settings GameSettings;
-    GameSettings.automode = 3; // automode
+    GameSettings.automode = 4; // automode solver
     
     printf("Settings: Width: %d, Height: %d, Mine: %d, automode: %d\n", Width, Height, MineNum, GameSettings.automode);
     printf("Menu:\n1.Start.\n2.Settings.\n3.Main Menu.\n");
