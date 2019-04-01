@@ -1,4 +1,4 @@
-# python version of game mine, just for fun
+# pygame of texas holdem, just for fun
 
 ## Introduction
 
@@ -11,7 +11,6 @@
  
 
 ## Update log
- - paused, see MineSweeper instead
 
-### 03/22/19
+### 03/31/19
  - project launched
