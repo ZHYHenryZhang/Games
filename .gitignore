@@ -3,6 +3,8 @@
 
 # unignore dir
 !*/
+MineSweeper/
+MineSweeper/*
 
 # unignore cpp
 !*.cpp
@@ -11,3 +13,4 @@
 !*.txt
 !*.h
 !*.md
+!.gitignore
